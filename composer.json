@@ -27,9 +27,10 @@
         }
     },
     "scripts": {
-        "lint": "./vendor/bin/pint",
+        "lint:fix": "./vendor/bin/pint",
         "lint:check": "./vendor/bin/pint --test",
         "test": "./vendor/bin/pest",
-        "phpstan": "./vendor/bin/phpstan analyse ./src"
+        "phpstan": "./vendor/bin/phpstan analyse --memory-limit 2G",
+        "phpstan:ci": "./vendor/bin/phpstan analyse --no-ansi --memory-limit 2G"
     }
 }
