@@ -42,8 +42,8 @@ jobs:
       run: composer lint:check
 
     - name: Run static analysis
-      run: composer phpstan
+      run: composer phpstan:ci
 
     - name: Run test suite
-      run: vendor/bin/phpunit
+      run: composer test
 
