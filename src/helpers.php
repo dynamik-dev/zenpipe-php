@@ -14,4 +14,3 @@ if (! function_exists('zenpipe')) {
         return new ZenPipe();
     }
 }
-
