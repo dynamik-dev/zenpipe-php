@@ -177,17 +177,3 @@ The MIT License (MIT). See [LICENSE](LICENSE) for details.
 
 - [ ] Add support for PSR-15 middleware
 
-# Table of Contents
-
-1. [ZenPipe](#zenpipe)
-2. [Requirements](#requirements)
-3. [Installation](#installation)
-4. [Usage](#usage)
-   - [Pipeline Operations](#pipeline-operations)
-   - [Class Methods as Operations](#class-methods-as-operations)
-5. [Examples](#examples)
-   - [RAG Processes](#rag-processes)
-   - [Email Validation](#email-validation)
-6. [Contributing](#contributing)
-7. [License](#license)
-8. [Roadmap](#roadmap)
