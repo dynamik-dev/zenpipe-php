@@ -7,19 +7,16 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        php-versions: ['8.2', '8.3', '8.4']
     
     steps:
     - uses: actions/checkout@v3
 
-    - name: Setup PHP
+    - name: Setup PHP 8.3
       uses: shivammathur/setup-php@v2
       with:
-        php-version: ${{ matrix.php-versions }}
+        php-version: '8.3'
         extensions: mbstring, xml, ctype, iconv, intl, pdo_sqlite, mysql, zip
         coverage: xdebug
 
@@ -41,9 +38,25 @@ jobs:
     - name: Check code style
       run: composer lint:check
 
+  test:
+    needs: lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php-versions: ['8.2', '8.3', '8.4']
+    
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ matrix.php-versions }}
+        extensions: mbstring, xml, ctype, iconv, intl, pdo_sqlite, mysql, zip
+        coverage: xdebug
+
     - name: Run static analysis
       run: composer phpstan:ci
 
     - name: Run test suite
       run: composer test
-
