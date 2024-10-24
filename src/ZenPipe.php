@@ -10,12 +10,17 @@ class ZenPipe
     /** @var array<callable|array{class-string, string}> */
     protected array $operations = [];
 
+    public function __construct(protected mixed $initialValue = null)
+    {
+    }
+
     /**
+     * @param mixed|null $initialValue
      * @return self<T>
      */
-    public static function make(): self
+    public static function make(mixed $initialValue = null): self
     {
-        return new self();
+        return new self($initialValue);
     }
 
     /**
@@ -24,7 +29,38 @@ class ZenPipe
      */
     public function pipe($operation): self
     {
-        $this->operations[] = $operation;
+        if (is_callable($operation)) {
+            $this->operations[] = $operation;
+        }
+
+        /**
+         * If the operation is an array with two strings, we assume it's a class and method
+         */
+        if (is_array($operation) && count($operation) === 2 && is_string($operation[0]) && is_string($operation[1])) {
+            if (class_exists($operation[0])) {
+                /**
+                 * @var array{class-string, string} $operation
+                 */
+                $this->operations[] = $operation;
+            } else {
+                throw new \InvalidArgumentException('Class '.$operation[0].' does not exist');
+            }
+        }
+
+        /**
+         * If the operation is an array, we need to add each operation to the pipeline
+         */
+        if (is_array($operation)) {
+
+            /**
+             * @var array<callable|array{class-string, string}> $operations
+             */
+            $operations = $operation;
+
+            foreach ($operations as $op) {
+                $this->pipe($op);
+            }
+        }
 
         return $this;
     }
@@ -39,22 +75,29 @@ class ZenPipe
     }
 
     /**
-     * @param  T  $initialValue
+     * @param  T|null  $initialValue
      * @return T
+     * @throws \InvalidArgumentException
      */
-    protected function process($initialValue)
+    public function process($initialValue = null)
     {
+        $value = $initialValue ?? $this->initialValue;
+
+        if ($value === null) {
+            throw new \InvalidArgumentException('Initial value must be provided either in the constructor or process method.');
+        }
+
         $pipeline = array_reduce(
             array_reverse($this->operations),
             $this->carry(),
             $this->passThroughOperation()
         );
 
-        return $pipeline($initialValue);
+        return $pipeline($value);
     }
 
     /**
-     * This function is used to carry the value through the pipeline.
+     * This method is used to carry the value through the pipeline.
      * It wraps the next operation in a closure that can handle both
      * static method calls and regular callables.
      *
@@ -78,7 +121,7 @@ class ZenPipe
     }
 
     /**
-     * This function is used to pass through the value without any changes.
+     * This method is used to pass through the value without any changes.
      *
      * @return callable
      */

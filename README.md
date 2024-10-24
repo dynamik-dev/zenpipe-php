@@ -1,80 +1,185 @@
-# DynamikDev ZenPipe
+# ZenPipe
+[![GitHub Actions](https://github.com/dynamik-dev/zenpipe-php/actions/workflows/CI.yml/badge.svg)](https://github.com/dynamik-dev/zenpipe-php/actions/workflows/CI.yml) 
+
+[![BuyMeACoffee](https://raw.githubusercontent.com/pachadotdev/buymeacoffee-badges/main/bmc-yellow.svg)](buymeacoffee.com/chrisarter)
+
+![ZenPipe Logo](./zenpipe.png)
+
+ZenPipe is a simple and flexible PHP pipeline library that allows you to chain operations together to process, transform, or act on input.
+
+```php
+$calculator = zenpipe()
+   ->pipe(fn($price, $next) => $next($price * 0.8)) // 20% discount  
+   ->pipe(fn($price, $next) => $next($price * 1.1)); // add 10% tax
+
+$calculator(100); // $88 (100 -> 80 -> 88)
+```
+
+You can also run the pipeline on demand:
+
+```php
+zenpipe(100)
+   ->pipe(fn($price, $next) => $next($price * 0.8)) // 20% discount  
+   ->pipe(fn($price, $next) => $next($price * 1.1)) // add 10% tax
+   ->process(); // 88
+```
+
+## Sections
+
+1. [ZenPipe](#zenpipe)
+2. [Requirements](#requirements)
+3. [Installation](#installation)
+4. [Usage](#usage)
+   - [Pipeline Operations](#pipeline-operations)
+   - [Class Methods as Operations](#class-methods-as-operations)
+5. [Examples](#examples)
+   - [RAG Processes](#rag-processes)
+   - [Email Validation](#email-validation)
+6. [Contributing](#contributing)
+7. [License](#license)
+8. [Roadmap](#roadmap)
+
+## Requirements
+
+- PHP 8.2 or higher
 
 ## Installation
 
 ```bash
 composer require dynamik-dev/zenpipe-php
 ```
-
 ## Usage
+### Pipeline Operations
 
-### Basic Usage
+Pipeline operations are functions that take an input and return a processed value. They can be passed as a single function or as an array with the class name and method name.
 
 ```php
-use DynamikDev\ZenPipe\Pipeline;
-
-$result = Pipeline::make()
-    ->pipe(function ($value) {
-        return $value * 2;
-    })
-    ->pipe(function ($value) {
-        return $value + 1;
-    })
-    ->invoke(5);
-
-echo $result; // Outputs: 11
+$pipeline = zenpipe()
+   ->pipe(fn($input, $next) => $next(strtoupper($input)));
 ```
 
-### Using Static Methods
+### Class Methods as Operations
+
+You can also use class methods as operations:
 
 ```php
-class MathOperations
+class MyClass
 {
-    public static function double($value)
+    public function uppercase($input)
     {
-        return $value * 2;
+        return strtoupper($input);
     }
 }
 
-$result = Pipeline::make()
-    ->pipe([MathOperations::class, 'double'])
-    ->invoke(5);
-
-echo $result; // Outputs: 10
+$pipeline = zenpipe()
+   ->pipe([MyClass::class, 'uppercase']);
 ```
 
-### Using Instance Methods
+You can also pass an array of operations:
 
 ```php
-class StringOperations
-{
-    public function uppercase($value)
-    {
-        return strtoupper($value);
-    }
-}
-
-$stringOps = new StringOperations();
-
-$result = Pipeline::make()
-    ->pipe([$stringOps, 'uppercase'])
-    ->invoke('hello');
-
-echo $result; // Outputs: HELLO
+$pipeline = zenpipe()
+   ->pipe([
+        fn($input, $next) => $next(strtoupper($input)),
+        [MyClass::class, 'uppercase']
+    ]);
 ```
 
-### Combining Different Types of Operations
+### Examples
+
+#### RAG Processes
+
+This pipeline can be used for RAG processes, where the output of one model is used as input for another.
 
 ```php
-$stringOps = new StringOperations();
+$ragPipeline = zenpipe()
+    ->pipe(fn($query, $next) => $next([
+        'query' => $query,
+        'embeddings' => OpenAI::embeddings()->create([
+            'model' => 'text-embedding-3-small',
+            'input' => $query
+        ])->embeddings[0]->embedding
+    ]))
+    ->pipe(fn($data, $next) => $next([
+        ...$data,
+        'context' => Qdrant::collection('knowledge-base')
+            ->search($data['embeddings'], limit: 3)
+            ->map(fn($doc) => $doc->content)
+            ->join("\n")
+    ]))
+    ->pipe(fn($data, $next) => $next(
+        OpenAI::chat()->create([
+            'model' => 'gpt-4-turbo-preview',
+            'messages' => [
+                [
+                    'role' => 'system',
+                    'content' => 'Answer using the provided context only.'
+                ],
+                [
+                    'role' => 'user',
+                    'content' => "Context: {$data['context']}\n\nQuery: {$data['query']}"
+                ]
+            ]
+        ])->choices[0]->message->content
+    ));
 
-$result = Pipeline::make()
-    ->pipe(function ($value) {
-        return $value * 2;
+$answer = $ragPipeline("What's our refund policy?");
+```
+
+#### Email Validation
+
+This pipeline can be used to validate an email address.
+
+```php
+   $emailValidationPipeline = zenpipe()
+    ->pipe(function($input, $next) {
+        return $next(filter_var($input, FILTER_VALIDATE_EMAIL));
     })
-    ->pipe([MathOperations::class, 'double'])
-    ->pipe([$stringOps, 'uppercase'])
-    ->invoke(5);
+    ->pipe(function($email, $next) {
 
-echo $result; // Outputs: 20
-```
+        if (!$email) {
+            return false;
+        }
+        
+        $domain = substr(strrchr($email, "@"), 1);
+        $mxhosts = [];
+        $mxweight = [];
+        
+        if (getmxrr($domain, $mxhosts, $mxweight)) {
+            return $next(true);
+        }
+        
+        // If MX records don't exist, check for A record as a fallback
+        return $next(checkdnsrr($domain, 'A'));
+    });
+
+
+$result = $emailValidationPipeline('example@example.com');
+``` 
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+
+## License
+
+The MIT License (MIT). See [LICENSE](LICENSE) for details.
+
+## Roadmap
+
+- [ ] Add support for PSR-15 middleware
+
+# Table of Contents
+
+1. [ZenPipe](#zenpipe)
+2. [Requirements](#requirements)
+3. [Installation](#installation)
+4. [Usage](#usage)
+   - [Pipeline Operations](#pipeline-operations)
+   - [Class Methods as Operations](#class-methods-as-operations)
+5. [Examples](#examples)
+   - [RAG Processes](#rag-processes)
+   - [Email Validation](#email-validation)
+6. [Contributing](#contributing)
+7. [License](#license)
+8. [Roadmap](#roadmap)

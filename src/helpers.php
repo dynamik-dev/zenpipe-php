@@ -9,8 +9,8 @@ if (! function_exists('zenpipe')) {
      * @template T
      * @return ZenPipe<T>
      */
-    function zenpipe(): ZenPipe
+    function zenpipe(mixed $initialValue = null): ZenPipe
     {
-        return new ZenPipe();
+        return new ZenPipe($initialValue);
     }
 }

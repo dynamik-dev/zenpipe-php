@@ -1,5 +1,7 @@
 <?php
 
+use DynamikDev\ZenPipe\ZenPipe;
+
 test('pipeline processes multiple operations correctly', function () {
     $pipeline = zenpipe()
         ->pipe(function ($value, $next) {
@@ -33,7 +35,6 @@ test('pipeline can short-circuit', function () {
 });
 
 test('pipeline can use class methods as handlers', function () {
-
     $testClass = new class () {
         public function handle($value, $next)
         {
@@ -43,6 +44,9 @@ test('pipeline can use class methods as handlers', function () {
         }
     };
 
+    /**
+     * @var ZenPipe<int>
+     */
     $pipeline = zenpipe()
         ->pipe(function ($value, $next) {
             return $next($value + 1);
@@ -53,4 +57,48 @@ test('pipeline can use class methods as handlers', function () {
         });
 
     expect($pipeline(5))->toBe(15);  // (5 + 1) * 2 + 3 = 15
+});
+
+test('pipeline supports immediate processing', function () {
+    $result = zenpipe(100)
+        ->pipe(fn ($price, $next) => $next($price + 1))
+        ->pipe(fn ($price, $next) => $next($price + 2))
+        ->process();
+
+    expect($result)->toBe(103);
+});
+
+test('pipeline supports both reusable and immediate processing', function () {
+    // Reusable pipeline
+    $calculator = zenpipe()
+        ->pipe(fn ($price, $next) => $next($price + 1))
+        ->pipe(fn ($price, $next) => $next($price + 2));
+
+    expect($calculator(100))->toBe(103);
+
+    // Immediate processing
+    $result = zenpipe(10)
+        ->pipe(fn ($price, $next) => $next($price + 1))
+        ->pipe(fn ($price, $next) => $next($price + 2))
+        ->process();
+
+    expect($result)->toBe(13);
+});
+
+test('pipeline throws exception when no initial value is provided', function () {
+    $pipeline = zenpipe()
+        ->pipe(fn ($value, $next) => $next($value * 2));
+
+    expect(fn () => $pipeline->process())->toThrow(InvalidArgumentException::class);
+});
+
+test('pipeline supports array of operations', function () {
+    $pipeline = zenpipe()
+        ->pipe([
+            fn ($value, $next) => $next($value + 1),
+            fn ($value, $next) => $next($value * 2),
+            fn ($value, $next) => $next($value - 3),
+        ]);
+
+    expect($pipeline(5))->toBe(9);
 });
