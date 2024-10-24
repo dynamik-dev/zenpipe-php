@@ -1,0 +1,13 @@
+parameters:
+    level: 8
+    paths:
+        - src
+        - tests
+    excludePaths:
+        - vendor
+    ignoreErrors:
+        - '#PHPDoc tag @var#'
+        - 
+            message: '#Template type T of function zenpipe\(\) is not referenced in a parameter.#'
+            path: src/helpers.php
+    reportUnmatchedIgnoredErrors: false

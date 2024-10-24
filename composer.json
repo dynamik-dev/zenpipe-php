@@ -1,0 +1,35 @@
+{
+    "name": "dynamik-dev/zenpipe-php",
+    "description": "A simple, fluent pipeline implementation for PHP.",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "DynamikDev\\ZenPipe\\": "src/"
+        },
+        "files": [
+            "src/helpers.php"
+        ]
+    },
+    "authors": [
+        {
+            "name": "Chris Arter",
+            "email": "chris@arter.dev"
+        }
+    ],
+    "require-dev": {
+        "pestphp/pest": "^3.5",
+        "phpstan/phpstan": "^1.12",
+        "laravel/pint": "^1.18"
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "scripts": {
+        "lint": "./vendor/bin/pint",
+        "lint:check": "./vendor/bin/pint --test",
+        "test": "./vendor/bin/pest",
+        "phpstan": "./vendor/bin/phpstan analyse ./src"
+    }
+}
