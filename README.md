@@ -1,9 +1,17 @@
 # ZenPipe
-[![GitHub Actions](https://github.com/dynamik-dev/zenpipe-php/actions/workflows/CI.yml/badge.svg)](https://github.com/dynamik-dev/zenpipe-php/actions/workflows/CI.yml) 
 
-[![BuyMeACoffee](https://raw.githubusercontent.com/pachadotdev/buymeacoffee-badges/main/bmc-yellow.svg)](buymeacoffee.com/chrisarter)
+<div style="display: flex; flex-direction: row; align-items: center; gap: 10px; margin-bottom: 10px;">
+  <a href="https://github.com/dynamik-dev/zenpipe-php/actions/workflows/CI.yml">
+    <img src="https://github.com/dynamik-dev/zenpipe-php/actions/workflows/CI.yml/badge.svg" alt="GitHub Actions">
+  </a>
+  <a href="https://buymeacoffee.com/chrisarter">
+    <img src="https://raw.githubusercontent.com/pachadotdev/buymeacoffee-badges/main/bmc-yellow.svg" alt="BuyMeACoffee">
+  </a>
+</div>
 
-![ZenPipe Logo](./zenpipe.png)
+<p align="center">
+  <img src="./zenpipe.png" alt="ZenPipe Logo" style="max-width: 30rem;">
+</p>
 
 ZenPipe is a simple and flexible PHP pipeline library that allows you to chain operations together to process, transform, or act on input.
 
