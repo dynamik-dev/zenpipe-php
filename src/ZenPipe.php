@@ -100,7 +100,7 @@ class ZenPipe
      * This method is used to carry the value through the pipeline.
      * It wraps the next operation in a closure that can handle both
      * static method calls and regular callables.
-     * 
+     *
      * The operation can now accept a third parameter for early return:
      * - For callables: function($value, $next, $return)
      * - For class methods: method($value, $next, $return)
