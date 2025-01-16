@@ -40,9 +40,8 @@ zenpipe(100)
 4. [Usage](#usage)
    - [Pipeline Operations](#pipeline-operations)
    - [Class Methods as Operations](#class-methods-as-operations)
-5. [Examples](#examples)
-   - [RAG Processes](#rag-processes)
-   - [Email Validation](#email-validation)
+   - [More Examples](#more-examples)
+5. [API Reference](#api-reference)
 6. [Contributing](#contributing)
 7. [License](#license)
 8. [Roadmap](#roadmap)
@@ -59,28 +58,93 @@ composer require dynamik-dev/zenpipe-php
 ## Usage
 ### Pipeline Operations
 
-Pipeline operations are functions that take an input and return a processed value. They can be passed as a single function or as an array with the class name and method name.
+Pipeline operations are functions that take an input and return a processed value. Each operation can receive up to three parameters:
+- `$input`: The value being processed
+- `$next`: A callback to pass the value to the next operation
+- `$return`: (Optional) A callback to exit the pipeline early with a value
 
+#### Basic Operation Example
+Let's build an input sanitization pipeline:
 ```php
-$pipeline = zenpipe()
-   ->pipe(fn($input, $next) => $next(strtoupper($input)));
+// String sanitization pipeline
+$sanitizer = zenpipe()
+    ->pipe(fn($input, $next) => $next(trim($input)))
+    ->pipe(fn($input, $next) => $next(preg_replace('/\s+/', ' ', $input)))
+    ->pipe(fn($input, $next) => $next(strip_tags($input)))
+    ->pipe(fn($input, $next) => $next(htmlspecialchars($input)))
+    ->pipe(fn($input, $next) => $next(mb_convert_encoding(
+        $input, 'UTF-8', mb_detect_encoding($input)
+    )));
+
+// Usage examples:
+$dirtyInput = "  <script>alert('xss')</script>  Hello   World! ¥€$ ";
+$cleanInput = $sanitizer($dirtyInput);
+// Output: "Hello World! ¥€$"
+
+// Can also be run on demand:
+$result = zenpipe($dirtyInput)
+    ->pipe(fn($input, $next) => $next(trim($input)))
+    ->pipe(fn($input, $next) => $next(strip_tags($input)))
+    ->process();
+```
+
+#### Operation with Early Return
+Below is a practical example of a content moderation pipeline with early returns:
+```php
+// Content moderation pipeline with early returns
+$moderationPipeline = zenpipe()
+    ->pipe(function($content, $next, $return) {
+        // Skip moderation for trusted authors
+        if (Auth::user()->isTrusted()) {
+            return $return([
+                'status' => 'approved',
+                'content' => $content,
+                'skipped' => true
+            ]);
+        }
+        return $next($content);
+    })
+    ->pipe(function($content, $next, $return) {
+        // Quick check for banned words
+        if (containsBannedWords($content)) {
+            return $return([
+                'status' => 'rejected',
+                'reason' => 'prohibited_content'
+            ]);
+        }
+        return $next($content);
+    })
+    ->pipe(function($content, $next) {
+        // Send to AI moderation for nuanced analysis
+        return $next(
+            AI::moderate($content)
+        );
+    });
+
+// Usage:
+$result = $moderationPipeline("Hello, world!"); 
+// Trusted user: Immediately returns approved
+// Regular user: Goes through full moderation
 ```
 
 ### Class Methods as Operations
 
-You can also use class methods as operations:
+You can also use class methods as operations, with the same parameter options:
 
 ```php
 class MyClass
 {
-    public function uppercase($input)
+    public function validate($input, $next, $return)
     {
-        return strtoupper($input);
+        if (empty($input)) {
+            return $return('Input cannot be empty');
+        }
+        return $next(strtoupper($input));
     }
 }
 
 $pipeline = zenpipe()
-   ->pipe([MyClass::class, 'uppercase']);
+   ->pipe([MyClass::class, 'validate']);
 ```
 
 You can also pass an array of operations:
@@ -89,11 +153,11 @@ You can also pass an array of operations:
 $pipeline = zenpipe()
    ->pipe([
         fn($input, $next) => $next(strtoupper($input)),
-        [MyClass::class, 'uppercase']
+        [MyClass::class, 'validate']
     ]);
 ```
 
-### Examples
+### More Examples
 
 #### RAG Processes
 
@@ -134,36 +198,43 @@ $ragPipeline = zenpipe()
 $answer = $ragPipeline("What's our refund policy?");
 ```
 
-#### Email Validation
+#### Email Validation with Early Return
 
-This pipeline can be used to validate an email address.
+This pipeline demonstrates early returns for email validation:
 
 ```php
-   $emailValidationPipeline = zenpipe()
-    ->pipe(function($input, $next) {
+$emailValidationPipeline = zenpipe()
+    ->pipe(function($input, $next, $return) {
+        if (!is_string($input)) {
+            return $return('Input must be a string');
+        }
         return $next(filter_var($input, FILTER_VALIDATE_EMAIL));
     })
-    ->pipe(function($email, $next) {
-
+    ->pipe(function($email, $next, $return) {
         if (!$email) {
-            return false;
+            return $return('Invalid email format');
         }
         
         $domain = substr(strrchr($email, "@"), 1);
         $mxhosts = [];
-        $mxweight = [];
         
-        if (getmxrr($domain, $mxhosts, $mxweight)) {
-            return $next(true);
+        if (!getmxrr($domain, $mxhosts)) {
+            return $return('Domain has no valid mail servers');
         }
         
-        // If MX records don't exist, check for A record as a fallback
-        return $next(checkdnsrr($domain, 'A'));
+        return $next(true);
     });
 
-
 $result = $emailValidationPipeline('example@example.com');
-``` 
+// Returns: 'Domain has no valid mail servers'
+
+$result = $emailValidationPipeline('invalid-email');
+// Returns: 'Invalid email format'
+```
+
+## API Reference
+
+See [API Reference](docs/API.md) for details.
 
 ## Contributing
 
@@ -176,4 +247,3 @@ The MIT License (MIT). See [LICENSE](LICENSE) for details.
 ## Roadmap
 
 - [ ] Add support for PSR-15 middleware
-
