@@ -100,22 +100,30 @@ class ZenPipe
      * This method is used to carry the value through the pipeline.
      * It wraps the next operation in a closure that can handle both
      * static method calls and regular callables.
+     * 
+     * The operation can now accept a third parameter for early return:
+     * - For callables: function($value, $next, $return)
+     * - For class methods: method($value, $next, $return)
      *
      * @return callable
      */
-    protected function carry(): callable
+    public function carry(): callable
     {
         return function ($next, $operation) {
             return function ($value) use ($next, $operation) {
+                $return = function ($value) {
+                    return $value;
+                };
+
                 if (is_array($operation) && count($operation) === 2 && is_string($operation[0]) && is_string($operation[1])) {
                     $class = $operation[0];
                     $method = $operation[1];
                     $instance = new $class();
 
-                    return $instance->$method($value, $next);
+                    return $instance->$method($value, $next, $return);
                 }
 
-                return $operation($value, $next);
+                return $operation($value, $next, $return);
             };
         };
     }
