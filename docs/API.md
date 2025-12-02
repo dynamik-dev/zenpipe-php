@@ -35,6 +35,47 @@ Static factory method to create a new pipeline instance.
   - `$initialValue` (mixed|null): The initial value to be processed through the pipeline.
 - **Returns:** A new `ZenPipe` instance.
 
+### withContext()
+
+```php
+public function withContext(mixed $context): self
+```
+
+Sets a context object that will be passed to all operations as the fourth parameter.
+
+- **Parameters:**
+  - `$context` (mixed): Any value to be passed as context (object, array, DTO, etc.)
+- **Returns:** The `ZenPipe` instance for method chaining.
+
+**Example:**
+```php
+$pipeline = zenpipe($value)
+    ->withContext(new MyContext())
+    ->pipe(fn($v, $next, $return, MyContext $ctx) => $next($v));
+```
+
+### catch()
+
+```php
+public function catch(callable $handler): self
+```
+
+Sets an exception handler for the pipeline.
+
+- **Parameters:**
+  - `$handler` (callable): A function that receives `(Throwable $e, mixed $originalValue, mixed $context)` and returns a fallback value.
+- **Returns:** The `ZenPipe` instance for method chaining.
+
+**Example:**
+```php
+$pipeline = zenpipe($value)
+    ->withContext($myContext)
+    ->pipe(fn($v, $next) => $next(riskyOperation($v)))
+    ->catch(fn($e, $value, $ctx) => ['error' => $e->getMessage()]);
+```
+
+If an exception occurs and no catch handler is set, the exception propagates normally.
+
 ### pipe()
 
 ```php
@@ -50,6 +91,13 @@ Adds an operation to the pipeline.
     - `array`: An array of operations to be added sequentially
 - **Returns:** The `ZenPipe` instance for method chaining.
 - **Throws:** `\InvalidArgumentException` if the specified class does not exist.
+
+**Operation Parameters:**
+Operations receive up to four parameters:
+1. `$value` - The current value being processed
+2. `$next` - Callback to pass value to next operation
+3. `$return` - Callback to exit pipeline early with a value
+4. `$context` - The context set via `withContext()` (null if not set)
 
 ### process()
 
