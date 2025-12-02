@@ -7,7 +7,9 @@ if (! function_exists('zenpipe')) {
      * Create a new ZenPipe instance.
      *
      * @template T
-     * @return ZenPipe<T>
+     * @template TContext
+     *
+     * @return ZenPipe<T, TContext>
      */
     function zenpipe(mixed $initialValue = null): ZenPipe
     {

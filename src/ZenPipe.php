@@ -4,19 +4,54 @@ namespace DynamikDev\ZenPipe;
 
 /**
  * @template T
+ * @template TContext
  */
 class ZenPipe
 {
     /** @var array<callable|array{class-string, string}> */
     protected array $operations = [];
 
+    /** @var TContext|null */
+    protected mixed $context = null;
+
+    /** @var callable|null */
+    protected $exceptionHandler = null;
+
     public function __construct(protected mixed $initialValue = null)
     {
     }
 
     /**
+     * Set an exception handler for the pipeline.
+     *
+     * @param  callable(\Throwable, mixed, TContext|null): mixed  $handler
+     * @return self<T, TContext>
+     */
+    public function catch(callable $handler): self
+    {
+        $this->exceptionHandler = $handler;
+
+        return $this;
+    }
+
+    /**
+     * Set the context to be passed to each operation.
+     *
+     * @template TNewContext
+     *
+     * @param  TNewContext  $context
+     * @return self<T, TNewContext>
+     */
+    public function withContext(mixed $context): self
+    {
+        $this->context = $context;
+
+        return $this;
+    }
+
+    /**
      * @param mixed|null $initialValue
-     * @return self<T>
+     * @return self<T, TContext>
      */
     public static function make(mixed $initialValue = null): self
     {
@@ -25,7 +60,7 @@ class ZenPipe
 
     /**
      * @param  callable|array{class-string, string}  $operation
-     * @return self<T>
+     * @return self<T, TContext>
      */
     public function pipe($operation): self
     {
@@ -78,6 +113,7 @@ class ZenPipe
      * @param  T|null  $initialValue
      * @return T
      * @throws \InvalidArgumentException
+     * @throws \Throwable
      */
     public function process($initialValue = null)
     {
@@ -93,7 +129,14 @@ class ZenPipe
             $this->passThroughOperation()
         );
 
-        return $pipeline($value);
+        try {
+            return $pipeline($value);
+        } catch (\Throwable $e) {
+            if ($this->exceptionHandler !== null) {
+                return ($this->exceptionHandler)($e, $value, $this->context);
+            }
+            throw $e;
+        }
     }
 
     /**
@@ -101,9 +144,9 @@ class ZenPipe
      * It wraps the next operation in a closure that can handle both
      * static method calls and regular callables.
      *
-     * The operation can now accept a third parameter for early return:
-     * - For callables: function($value, $next, $return)
-     * - For class methods: method($value, $next, $return)
+     * Operations can accept up to four parameters:
+     * - For callables: function($value, $next, $return, $context)
+     * - For class methods: method($value, $next, $return, $context)
      *
      * @return callable
      */
@@ -120,10 +163,10 @@ class ZenPipe
                     $method = $operation[1];
                     $instance = new $class();
 
-                    return $instance->$method($value, $next, $return);
+                    return $instance->$method($value, $next, $return, $this->context);
                 }
 
-                return $operation($value, $next, $return);
+                return $operation($value, $next, $return, $this->context);
             };
         };
     }

@@ -40,6 +40,8 @@ zenpipe(100)
 4. [Usage](#usage)
    - [Pipeline Operations](#pipeline-operations)
    - [Class Methods as Operations](#class-methods-as-operations)
+   - [Context Passing](#context-passing)
+   - [Exception Handling](#exception-handling)
    - [More Examples](#more-examples)
 5. [API Reference](#api-reference)
 6. [Contributing](#contributing)
@@ -58,10 +60,11 @@ composer require dynamik-dev/zenpipe-php
 ## Usage
 ### Pipeline Operations
 
-Pipeline operations are functions that take an input and return a processed value. Each operation can receive up to three parameters:
+Pipeline operations are functions that take an input and return a processed value. Each operation can receive up to four parameters:
 - `$input`: The value being processed
 - `$next`: A callback to pass the value to the next operation
 - `$return`: (Optional) A callback to exit the pipeline early with a value
+- `$context`: (Optional) A shared context object passed to all operations
 
 #### Basic Operation Example
 Let's build an input sanitization pipeline:
@@ -156,6 +159,77 @@ $pipeline = zenpipe()
         [MyClass::class, 'validate']
     ]);
 ```
+
+### Context Passing
+
+You can pass a shared context object to all operations using `withContext()`. This is useful for sharing state, configuration, or dependencies across the pipeline without threading them through the value.
+
+```php
+// Use any object as context - your own DTO, stdClass, or array
+class RequestContext
+{
+    public function __construct(
+        public string $userId,
+        public array $permissions,
+        public array $logs = []
+    ) {}
+}
+
+$context = new RequestContext(
+    userId: 'user-123',
+    permissions: ['read', 'write']
+);
+
+$result = zenpipe(['action' => 'update', 'data' => [...]])
+    ->withContext($context)
+    ->pipe(function ($request, $next, $return, RequestContext $ctx) {
+        if (!in_array('write', $ctx->permissions)) {
+            return $return(['error' => 'Unauthorized']);
+        }
+        $ctx->logs[] = "Permission check passed for {$ctx->userId}";
+        return $next($request);
+    })
+    ->pipe(function ($request, $next, $return, RequestContext $ctx) {
+        $ctx->logs[] = "Processing {$request['action']}";
+        return $next([...$request, 'processed_by' => $ctx->userId]);
+    })
+    ->process();
+
+// Context is mutable - logs are accumulated across operations
+// $context->logs = ['Permission check passed for user-123', 'Processing update']
+```
+
+Type hint your context parameter in the operation signature for IDE support:
+
+```php
+/** @var ZenPipe<array, RequestContext> */
+$pipeline = zenpipe()
+    ->withContext(new RequestContext(...))
+    ->pipe(fn($value, $next, $return, RequestContext $ctx) => ...);
+```
+
+### Exception Handling
+
+Use `catch()` to handle exceptions gracefully without breaking the pipeline:
+
+```php
+$result = zenpipe($userData)
+    ->pipe(fn($data, $next) => $next(validateInput($data)))
+    ->pipe(fn($data, $next) => $next(processPayment($data))) // might throw
+    ->pipe(fn($data, $next) => $next(sendConfirmation($data)))
+    ->catch(fn(Throwable $e, $originalValue) => [
+        'error' => $e->getMessage(),
+        'input' => $originalValue,
+    ])
+    ->process();
+```
+
+The catch handler receives:
+- `$e`: The thrown exception (`Throwable`)
+- `$value`: The original input value passed to `process()`
+- `$context`: The context set via `withContext()` (null if not set)
+
+If no catch handler is set, exceptions propagate normally.
 
 ### More Examples
 
