@@ -89,6 +89,7 @@ Adds an operation to the pipeline.
     - `callable`: A function to process the value
     - `array{class-string, string}`: A tuple of [className, methodName]
     - `array`: An array of operations to be added sequentially
+    - `MiddlewareInterface`: A PSR-15 middleware (auto-detected)
 - **Returns:** The `ZenPipe` instance for method chaining.
 - **Throws:** `\InvalidArgumentException` if the specified class does not exist.
 
@@ -123,3 +124,64 @@ Makes the pipeline instance callable.
 - **Parameters:**
   - `$initialValue`: The value to process through the pipeline.
 - **Returns:** The processed value after running through all operations.
+
+### asMiddleware()
+
+```php
+public function asMiddleware(): MiddlewareInterface
+```
+
+Wraps the pipeline as a PSR-15 middleware.
+
+- **Returns:** A `MiddlewareInterface` instance.
+
+See [PSR-15 Middleware](#psr-15-middleware) for details.
+
+---
+
+## PSR-15 Middleware
+
+ZenPipe provides bidirectional PSR-15 middleware support. Requires `psr/http-server-middleware`.
+
+### Using PSR-15 Middleware in a Pipeline
+
+Pass any `MiddlewareInterface` directly to `pipe()` - it's auto-detected:
+
+```php
+$response = zenpipe($request)
+    ->pipe(new CorsMiddleware())
+    ->pipe(new AuthMiddleware())
+    ->pipe(fn($req, $next, $return) => $return(new Response(200)))
+    ->process();
+```
+
+When using PSR-15 middleware, the pipeline must return a `ResponseInterface`.
+
+### Using ZenPipe as PSR-15 Middleware
+
+Wrap a pipeline with `asMiddleware()` for use in PSR-15 frameworks:
+
+```php
+$pipeline = zenpipe()
+    ->pipe(fn($req, $next) => $next($req->withAttribute('processed', true)));
+
+$app->middleware($pipeline->asMiddleware());
+```
+
+**Behavior:**
+- If the pipeline returns a `ResponseInterface`, it's returned directly
+- If the pipeline returns a `ServerRequestInterface`, it's passed to the next handler
+- The PSR-15 handler is available via `$context->handler` for explicit delegation
+
+```php
+$authPipeline = zenpipe()
+    ->pipe(function ($req, $next, $return, $ctx) {
+        if (!$req->hasHeader('Authorization')) {
+            return $return(new Response(401));
+        }
+        // Delegate to next PSR-15 handler
+        return $ctx->handler->handle($req);
+    });
+
+$app->middleware($authPipeline->asMiddleware());
+```

@@ -17,7 +17,7 @@ ZenPipe is a simple and flexible PHP pipeline library that allows you to chain o
 
 ```php
 $calculator = zenpipe()
-   ->pipe(fn($price, $next) => $next($price * 0.8)) // 20% discount  
+   ->pipe(fn($price, $next) => $next($price * 0.8)) // 20% discount
    ->pipe(fn($price, $next) => $next($price * 1.1)); // add 10% tax
 
 $calculator(100); // $88 (100 -> 80 -> 88)
@@ -27,7 +27,7 @@ You can also run the pipeline on demand:
 
 ```php
 zenpipe(100)
-   ->pipe(fn($price, $next) => $next($price * 0.8)) // 20% discount  
+   ->pipe(fn($price, $next) => $next($price * 0.8)) // 20% discount
    ->pipe(fn($price, $next) => $next($price * 1.1)) // add 10% tax
    ->process(); // 88
 ```
@@ -57,17 +57,22 @@ zenpipe(100)
 ```bash
 composer require dynamik-dev/zenpipe-php
 ```
+
 ## Usage
+
 ### Pipeline Operations
 
 Pipeline operations are functions that take an input and return a processed value. Each operation can receive up to four parameters:
+
 - `$input`: The value being processed
 - `$next`: A callback to pass the value to the next operation
 - `$return`: (Optional) A callback to exit the pipeline early with a value
 - `$context`: (Optional) A shared context object passed to all operations
 
 #### Basic Operation Example
+
 Let's build an input sanitization pipeline:
+
 ```php
 // String sanitization pipeline
 $sanitizer = zenpipe()
@@ -92,7 +97,9 @@ $result = zenpipe($dirtyInput)
 ```
 
 #### Operation with Early Return
+
 Below is a practical example of a content moderation pipeline with early returns:
+
 ```php
 // Content moderation pipeline with early returns
 $moderationPipeline = zenpipe()
@@ -125,7 +132,7 @@ $moderationPipeline = zenpipe()
     });
 
 // Usage:
-$result = $moderationPipeline("Hello, world!"); 
+$result = $moderationPipeline("Hello, world!");
 // Trusted user: Immediately returns approved
 // Regular user: Goes through full moderation
 ```
@@ -225,6 +232,7 @@ $result = zenpipe($userData)
 ```
 
 The catch handler receives:
+
 - `$e`: The thrown exception (`Throwable`)
 - `$value`: The original input value passed to `process()`
 - `$context`: The context set via `withContext()` (null if not set)
@@ -288,14 +296,14 @@ $emailValidationPipeline = zenpipe()
         if (!$email) {
             return $return('Invalid email format');
         }
-        
+
         $domain = substr(strrchr($email, "@"), 1);
         $mxhosts = [];
-        
+
         if (!getmxrr($domain, $mxhosts)) {
             return $return('Domain has no valid mail servers');
         }
-        
+
         return $next(true);
     });
 
@@ -319,5 +327,3 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 The MIT License (MIT). See [LICENSE](LICENSE) for details.
 
 ## Roadmap
-
-- [ ] Add support for PSR-15 middleware
