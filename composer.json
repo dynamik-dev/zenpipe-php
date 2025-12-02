@@ -19,7 +19,14 @@
     "require-dev": {
         "pestphp/pest": "^3.7",
         "phpstan/phpstan": "^2.1",
-        "laravel/pint": "^1.2"
+        "laravel/pint": "^1.2",
+        "psr/http-server-middleware": "^1.0",
+        "psr/http-message": "^1.0 || ^2.0",
+        "nyholm/psr7": "^1.8"
+    },
+    "suggest": {
+        "psr/http-server-middleware": "Required for PSR-15 middleware support (^1.0)",
+        "psr/http-message": "Required for PSR-15 middleware support (^1.0 || ^2.0)"
     },
     "config": {
         "allow-plugins": {

@@ -2,13 +2,17 @@
 
 namespace DynamikDev\ZenPipe;
 
+use DynamikDev\ZenPipe\Middleware\CallbackRequestHandler;
+use DynamikDev\ZenPipe\Middleware\PipelineMiddleware;
+use Psr\Http\Server\MiddlewareInterface;
+
 /**
  * @template T
  * @template TContext
  */
 class ZenPipe
 {
-    /** @var array<callable|array{class-string, string}> */
+    /** @var array<callable|array{class-string, string}|MiddlewareInterface> */
     protected array $operations = [];
 
     /** @var TContext|null */
@@ -59,11 +63,25 @@ class ZenPipe
     }
 
     /**
-     * @param  callable|array{class-string, string}  $operation
+     * @return MiddlewareInterface
+     */
+    public function asMiddleware(): MiddlewareInterface
+    {
+        return new PipelineMiddleware($this);
+    }
+
+    /**
+     * @param  callable|array{class-string, string}|MiddlewareInterface  $operation
      * @return self<T, TContext>
      */
     public function pipe($operation): self
     {
+        if ($operation instanceof MiddlewareInterface) {
+            $this->operations[] = $operation;
+
+            return $this;
+        }
+
         if (is_callable($operation)) {
             $this->operations[] = $operation;
         }
@@ -140,23 +158,19 @@ class ZenPipe
     }
 
     /**
-     * This method is used to carry the value through the pipeline.
-     * It wraps the next operation in a closure that can handle both
-     * static method calls and regular callables.
-     *
-     * Operations can accept up to four parameters:
-     * - For callables: function($value, $next, $return, $context)
-     * - For class methods: method($value, $next, $return, $context)
-     *
      * @return callable
      */
     public function carry(): callable
     {
         return function ($next, $operation) {
             return function ($value) use ($next, $operation) {
-                $return = function ($value) {
-                    return $value;
-                };
+                $return = fn ($value) => $value;
+
+                if ($operation instanceof MiddlewareInterface) {
+                    $handler = new CallbackRequestHandler(fn ($request) => $next($request));
+
+                    return $operation->process($value, $handler);
+                }
 
                 if (is_array($operation) && count($operation) === 2 && is_string($operation[0]) && is_string($operation[1])) {
                     $class = $operation[0];
@@ -172,14 +186,10 @@ class ZenPipe
     }
 
     /**
-     * This method is used to pass through the value without any changes.
-     *
      * @return callable
      */
     protected function passThroughOperation(): callable
     {
-        return function ($value) {
-            return $value;
-        };
+        return fn ($value) => $value;
     }
 }
