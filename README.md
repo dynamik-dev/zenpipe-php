@@ -42,11 +42,11 @@ zenpipe(100)
    - [Class Methods as Operations](#class-methods-as-operations)
    - [Context Passing](#context-passing)
    - [Exception Handling](#exception-handling)
+   - [PSR-15 Middleware](#psr-15-middleware)
    - [More Examples](#more-examples)
 5. [API Reference](#api-reference)
 6. [Contributing](#contributing)
 7. [License](#license)
-8. [Roadmap](#roadmap)
 
 ## Requirements
 
@@ -239,6 +239,52 @@ The catch handler receives:
 
 If no catch handler is set, exceptions propagate normally.
 
+### PSR-15 Middleware
+
+ZenPipe provides bidirectional PSR-15 middleware support. Requires `psr/http-server-middleware`.
+
+#### Using PSR-15 Middleware in a Pipeline
+
+Pass any `MiddlewareInterface` directly to `pipe()`:
+
+```php
+$response = zenpipe($request)
+    ->pipe(new CorsMiddleware())
+    ->pipe(new AuthMiddleware())
+    ->pipe(fn($req, $next, $return) => $return(new Response(200)))
+    ->process();
+```
+
+When using PSR-15 middleware, the pipeline must return a `ResponseInterface`.
+
+#### Using ZenPipe as PSR-15 Middleware
+
+Wrap a pipeline with `asMiddleware()` for use in PSR-15 frameworks:
+
+```php
+$pipeline = zenpipe()
+    ->pipe(fn($req, $next) => $next($req->withAttribute('processed', true)));
+
+$app->middleware($pipeline->asMiddleware());
+```
+
+**Behavior:**
+- If the pipeline returns a `ResponseInterface`, it's returned directly
+- If the pipeline returns a `ServerRequestInterface`, it's passed to the next handler
+- The PSR-15 handler is available via `$context->handler` for explicit delegation
+
+```php
+$authPipeline = zenpipe()
+    ->pipe(function ($req, $next, $return, $ctx) {
+        if (!$req->hasHeader('Authorization')) {
+            return $return(new Response(401));
+        }
+        return $ctx->handler->handle($req);
+    });
+
+$app->middleware($authPipeline->asMiddleware());
+```
+
 ### More Examples
 
 #### RAG Processes
@@ -325,5 +371,3 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 ## License
 
 The MIT License (MIT). See [LICENSE](LICENSE) for details.
-
-## Roadmap
